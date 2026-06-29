@@ -35,6 +35,7 @@ export class QuestionsService {
         tipo: dto.tipo,
         peso: dto.peso,
         instrucoes: dto.instrucoes ?? null,
+        gabarito: dto.gabarito ?? null,
         alternativas:
           dto.tipo === TipoPergunta.FECHADA && dto.alternativas
             ? {
@@ -113,6 +114,7 @@ export class QuestionsService {
           tipo: dto.tipo,
           peso: dto.peso,
           instrucoes: dto.instrucoes,
+          gabarito: dto.gabarito,
           alternativas: dto.alternativas
             ? {
                 create: dto.alternativas.map((a) => ({
@@ -195,6 +197,7 @@ export class QuestionsService {
       tipo: pergunta.tipo,
       peso: pergunta.peso,
       instrucoes: pergunta.instrucoes,
+      gabarito: pergunta.gabarito,
       ativa: pergunta.ativa,
       criadoEm: pergunta.criadoEm,
       alternativas: pergunta.alternativas?.map((a: any) => ({

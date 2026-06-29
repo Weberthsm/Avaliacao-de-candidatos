@@ -90,6 +90,10 @@ onMounted(carregar);
 
       <!-- Aberta: corrigir manualmente -->
       <div v-else class="mt-3 space-y-3">
+        <div v-if="r.gabarito" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <span class="text-xs font-medium uppercase text-amber-600">Gabarito / notas do avaliador</span>
+          <p class="mt-1 whitespace-pre-wrap">{{ r.gabarito }}</p>
+        </div>
         <div class="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
           <span class="text-xs text-slate-400">Resposta do candidato:</span>
           <p class="mt-1 whitespace-pre-wrap">{{ r.respostaTexto || '(em branco)' }}</p>

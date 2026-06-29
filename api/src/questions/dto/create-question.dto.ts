@@ -45,6 +45,11 @@ export class CreateQuestionDto {
   @IsString()
   instrucoes?: string;
 
+  @ApiPropertyOptional({ description: 'Gabarito / notas do avaliador — nunca exposto ao candidato.' })
+  @IsOptional()
+  @IsString()
+  gabarito?: string;
+
   @ApiPropertyOptional({
     type: [CreateAlternativaDto],
     description: 'Obrigatório e com no mínimo 2 itens para perguntas fechadas',

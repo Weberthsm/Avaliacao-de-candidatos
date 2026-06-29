@@ -6,6 +6,7 @@ export interface NovaPergunta {
   tipo: TipoPergunta;
   peso: number;
   instrucoes?: string;
+  gabarito?: string;
   alternativas?: { texto: string; correta: boolean }[];
 }
 

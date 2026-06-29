@@ -31,6 +31,9 @@ export class QuestionResponseDto {
   @ApiPropertyOptional({ nullable: true })
   instrucoes: string | null;
 
+  @ApiPropertyOptional({ nullable: true, description: 'Gabarito/notas do avaliador — nunca exposto ao candidato durante a prova.' })
+  gabarito: string | null;
+
   @ApiProperty()
   ativa: boolean;
 

@@ -31,6 +31,7 @@ export interface Pergunta {
   tipo: TipoPergunta;
   peso: number;
   instrucoes: string | null;
+  gabarito: string | null;
   ativa: boolean;
   criadoEm: string;
   alternativas?: Alternativa[];
@@ -130,6 +131,7 @@ export interface CorrectionAnswer {
   enunciado: string;
   tipo: TipoPergunta;
   peso: number;
+  gabarito: string | null;
   respostaTexto: string | null;
   alternativaEscolhida: string | null;
   alternativaCorreta: string | null;

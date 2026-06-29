@@ -86,6 +86,7 @@ model Pergunta {
   tipo        TipoPergunta
   peso        Int
   instrucoes  String?
+  gabarito    String?
   ativa       Boolean      @default(true)
   criadoEm    DateTime     @default(now()) @map("criado_em")
 

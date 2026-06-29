@@ -1673,6 +1673,10 @@
             "type": "string",
             "example": "Responda em até 10 linhas."
           },
+          "gabarito": {
+            "type": "string",
+            "description": "Gabarito / notas do avaliador — nunca exposto ao candidato."
+          },
           "alternativas": {
             "description": "Obrigatório e com no mínimo 2 itens para perguntas fechadas",
             "type": "array",
@@ -1732,6 +1736,11 @@
             "type": "object",
             "nullable": true
           },
+          "gabarito": {
+            "type": "object",
+            "nullable": true,
+            "description": "Gabarito/notas do avaliador — nunca exposto ao candidato durante a prova."
+          },
           "ativa": {
             "type": "boolean"
           },
@@ -1778,6 +1787,10 @@
           "instrucoes": {
             "type": "string",
             "example": "Responda em até 10 linhas."
+          },
+          "gabarito": {
+            "type": "string",
+            "description": "Gabarito / notas do avaliador — nunca exposto ao candidato."
           },
           "alternativas": {
             "description": "Obrigatório e com no mínimo 2 itens para perguntas fechadas",

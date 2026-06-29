@@ -18,6 +18,7 @@ const form = reactive({
   tipo: 'ABERTA' as TipoPergunta,
   peso: 10,
   instrucoes: '',
+  gabarito: '',
   alternativas: [
     { texto: '', correta: true },
     { texto: '', correta: false },
@@ -34,6 +35,7 @@ function resetForm() {
     tipo: 'ABERTA',
     peso: 10,
     instrucoes: '',
+    gabarito: '',
     alternativas: [
       { texto: '', correta: true },
       { texto: '', correta: false },
@@ -72,6 +74,7 @@ async function salvar() {
     tipo: form.tipo,
     peso: Number(form.peso),
     instrucoes: form.instrucoes || undefined,
+    gabarito: form.gabarito || undefined,
   };
   if (form.tipo === 'FECHADA') {
     payload.alternativas = form.alternativas
@@ -104,6 +107,7 @@ function iniciarEdicao(p: Pergunta) {
     tipo: p.tipo,
     peso: p.peso,
     instrucoes: p.instrucoes ?? '',
+    gabarito: p.gabarito ?? '',
     alternativas:
       p.tipo === 'FECHADA' && p.alternativas?.length
         ? p.alternativas.map((a) => ({ texto: a.texto, correta: !!a.correta }))
@@ -169,9 +173,21 @@ onMounted(carregar);
             <input v-model.number="form.peso" type="number" min="1" class="input" />
           </div>
         </div>
-        <div v-if="form.tipo === 'ABERTA'">
-          <label class="label">Instruções (opcional)</label>
-          <input v-model="form.instrucoes" class="input" />
+        <div v-if="form.tipo === 'ABERTA'" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label class="label">
+              Instruções para o candidato (opcional)
+              <InfoTip texto="Texto visível ao candidato durante a prova. Use para orientações sobre formato ou extensão da resposta." />
+            </label>
+            <input v-model="form.instrucoes" class="input" placeholder="Ex: Responda em até 5 linhas." />
+          </div>
+          <div>
+            <label class="label">
+              Gabarito / notas do avaliador (opcional)
+              <InfoTip texto="Visível apenas para você durante a correção. Nunca é exibido ao candidato." />
+            </label>
+            <input v-model="form.gabarito" class="input" placeholder="Ex: Mencionar X, Y e Z." />
+          </div>
         </div>
 
         <!-- Alternativas (fechada) -->
@@ -256,9 +272,12 @@ onMounted(carregar);
           </div>
 
           <!-- Detalhes da questão -->
-          <div v-if="expandidas.has(p.id)" class="mt-3 rounded-lg bg-slate-50 p-3 text-sm">
-            <p v-if="p.instrucoes" class="mb-2 text-slate-600">
-              <span class="font-medium">Instruções:</span> {{ p.instrucoes }}
+          <div v-if="expandidas.has(p.id)" class="mt-3 rounded-lg bg-slate-50 p-3 text-sm space-y-2">
+            <p v-if="p.instrucoes" class="text-slate-600">
+              <span class="font-medium">Instruções ao candidato:</span> {{ p.instrucoes }}
+            </p>
+            <p v-if="p.gabarito" class="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-amber-800">
+              <span class="font-medium">Gabarito (só você vê):</span> {{ p.gabarito }}
             </p>
 
             <template v-if="p.tipo === 'FECHADA'">

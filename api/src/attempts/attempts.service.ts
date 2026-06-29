@@ -404,6 +404,7 @@ export class AttemptsService {
         enunciado: r.pergunta.enunciado,
         tipo: r.pergunta.tipo,
         peso: r.pergunta.peso,
+        gabarito: r.pergunta.gabarito ?? null,
         respostaTexto: r.textoResposta,
         alternativaEscolhida: r.alternativaId,
         alternativaCorreta:
