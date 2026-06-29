@@ -1,0 +1,1495 @@
+openapi: 3.0.0
+paths:
+  /health:
+    get:
+      operationId: HealthController_check
+      summary: Verificação de disponibilidade da API
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Saúde
+  /auth/login:
+    post:
+      operationId: AuthController_login
+      summary: Acesso ao sistema (US-01)
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginDto'
+      responses:
+        '200':
+          description: Acesso concedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponseDto'
+        '401':
+          description: Credenciais inválidas
+        '403':
+          description: Acesso bloqueado temporariamente
+      tags: &ref_0
+        - Autenticação
+  /auth/refresh:
+    post:
+      operationId: AuthController_refresh
+      summary: Renovar sessão a partir do refresh token
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshDto'
+      responses:
+        '200':
+          description: Novos tokens emitidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponseDto'
+        '401':
+          description: Sessão expirada ou inválida
+      tags: *ref_0
+  /users:
+    post:
+      operationId: UsersController_create
+      summary: Cadastrar usuário (US-03)
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserDto'
+      responses:
+        '201':
+          description: Usuário cadastrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponseDto'
+        '400':
+          description: Dados inválidos
+        '401':
+          description: Não autenticado
+        '403':
+          description: Sem permissão (apenas administrador)
+        '409':
+          description: E-mail já cadastrado
+      tags: &ref_1
+        - Usuários
+      security: &ref_2
+        - bearer: []
+    get:
+      operationId: UsersController_findAll
+      summary: Listar usuários
+      parameters:
+        - name: perfil
+          required: false
+          in: query
+          schema:
+            enum:
+              - ADMIN
+              - AVALIADOR
+              - AVALIADO
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserResponseDto'
+      tags: *ref_1
+      security: *ref_2
+  /users/{id}:
+    get:
+      operationId: UsersController_findOne
+      summary: Detalhar usuário
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponseDto'
+        '404':
+          description: Usuário não encontrado
+      tags: *ref_1
+      security: *ref_2
+  /questions:
+    post:
+      operationId: QuestionsController_create
+      summary: Cadastrar pergunta aberta ou fechada (US-04/US-05)
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateQuestionDto'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionResponseDto'
+        '400':
+          description: Dados inválidos (peso, alternativas, gabarito)
+        '403':
+          description: Sem permissão (apenas avaliador)
+      tags: &ref_3
+        - Perguntas
+      security: &ref_4
+        - bearer: []
+    get:
+      operationId: QuestionsController_findAll
+      summary: Listar e filtrar perguntas (US-06)
+      parameters:
+        - name: tipo
+          required: false
+          in: query
+          schema:
+            enum:
+              - ABERTA
+              - FECHADA
+            type: string
+        - name: busca
+          required: false
+          in: query
+          description: Palavra no enunciado
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QuestionResponseDto'
+      tags: *ref_3
+      security: *ref_4
+  /questions/{id}:
+    get:
+      operationId: QuestionsController_findOne
+      summary: Detalhar pergunta
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionResponseDto'
+        '404':
+          description: Pergunta não encontrada
+      tags: *ref_3
+      security: *ref_4
+    patch:
+      operationId: QuestionsController_update
+      summary: Editar pergunta (US-07)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateQuestionDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionResponseDto'
+        '403':
+          description: Pergunta em processo ativo não pode ser editada
+        '404':
+          description: Pergunta não encontrada
+      tags: *ref_3
+      security: *ref_4
+    delete:
+      operationId: QuestionsController_remover
+      summary: Excluir pergunta não vinculada (US-07)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pergunta excluída
+        '400':
+          description: Pergunta vinculada a uma avaliação
+        '404':
+          description: Pergunta não encontrada
+      tags: *ref_3
+      security: *ref_4
+  /processes:
+    post:
+      operationId: ProcessesController_create
+      summary: Criar processo avaliativo (US-08)
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProcessDto'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessResponseDto'
+        '400':
+          description: Dados inválidos
+      tags: &ref_5
+        - Processos
+      security: &ref_6
+        - bearer: []
+    get:
+      operationId: ProcessesController_findAll
+      summary: Listar meus processos
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProcessResponseDto'
+      tags: *ref_5
+      security: *ref_6
+  /processes/{id}:
+    get:
+      operationId: ProcessesController_findOne
+      summary: Detalhar processo
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessResponseDto'
+        '404':
+          description: Processo não encontrado
+      tags: *ref_5
+      security: *ref_6
+    patch:
+      operationId: ProcessesController_update
+      summary: Editar processo (apenas rascunho)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProcessDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessResponseDto'
+        '403':
+          description: Processo não está em rascunho
+      tags: *ref_5
+      security: *ref_6
+  /processes/{id}/questions:
+    post:
+      operationId: ProcessesController_addQuestions
+      summary: Selecionar perguntas do processo (US-09)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddQuestionsDto'
+      responses:
+        '201':
+          description: Perguntas adicionadas
+        '400':
+          description: Pergunta inválida ou arquivada
+      tags: *ref_5
+      security: *ref_6
+    get:
+      operationId: ProcessesController_listQuestions
+      summary: Perguntas já vinculadas ao processo (US-09)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Perguntas do processo, em ordem
+      tags: *ref_5
+      security: *ref_6
+  /processes/{id}/candidates:
+    post:
+      operationId: ProcessesController_addCandidates
+      summary: Adicionar candidatos ao processo (US-10)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCandidatesDto'
+      responses:
+        '201':
+          description: Candidatos adicionados
+        '400':
+          description: Candidato inválido ou duplicado
+      tags: *ref_5
+      security: *ref_6
+    get:
+      operationId: ProcessesController_listCandidates
+      summary: Candidatos já vinculados ao processo (US-10)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Candidatos do processo
+      tags: *ref_5
+      security: *ref_6
+  /processes/{id}/publish:
+    patch:
+      operationId: ProcessesController_publish
+      summary: Publicar processo (US-11)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessResponseDto'
+        '400':
+          description: Processo sem perguntas ou sem candidatos
+      tags: *ref_5
+      security: *ref_6
+  /processes/{id}/close:
+    patch:
+      operationId: ProcessesController_close
+      summary: Encerrar processo manualmente
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessResponseDto'
+      tags: *ref_5
+      security: *ref_6
+  /processes/{id}/candidates/panel:
+    get:
+      operationId: ProcessesController_candidatePanel
+      summary: Painel de candidatos do processo (US-31)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CandidatePanelDto'
+        '404':
+          description: Processo não encontrado
+      tags: *ref_5
+      security: *ref_6
+  /processes/{id}/stats:
+    get:
+      operationId: ProcessesController_stats
+      summary: Tempo de resposta e média do processo (US-32)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessStatsDto'
+        '404':
+          description: Processo não encontrado
+      tags: *ref_5
+      security: *ref_6
+  /attempts/available:
+    get:
+      operationId: AttemptsController_available
+      summary: Avaliações disponíveis para mim (US-13)
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AvailableAssessmentDto'
+      tags: &ref_7
+        - Tentativas
+      security: &ref_8
+        - bearer: []
+  /attempts/my:
+    get:
+      operationId: AttemptsController_my
+      summary: Minhas avaliações e situação (US-29)
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttemptStatusDto'
+      tags: *ref_7
+      security: *ref_8
+  /attempts:
+    post:
+      operationId: AttemptsController_start
+      summary: Iniciar avaliação (US-14)
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartAttemptDto'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttemptDetailDto'
+        '400':
+          description: Processo indisponível ou fora da janela
+        '403':
+          description: Não vinculado ao processo
+      tags: *ref_7
+      security: *ref_8
+  /attempts/{id}:
+    get:
+      operationId: AttemptsController_detail
+      summary: Responder avaliação — questões e tempo restante (US-14/15/18)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttemptDetailDto'
+        '403':
+          description: Avaliação de outro candidato
+      tags: *ref_7
+      security: *ref_8
+  /attempts/{id}/submit:
+    patch:
+      operationId: AttemptsController_submit
+      summary: Finalizar e enviar avaliação (US-19)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttemptStatusDto'
+        '400':
+          description: Avaliação já finalizada
+      tags: *ref_7
+      security: *ref_8
+  /attempts/{id}/tab-exit:
+    post:
+      operationId: AttemptsController_tabExit
+      summary: Registrar saída de janela durante a prova (US-21)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Saída registrada
+      tags: *ref_7
+      security: *ref_8
+  /attempts/{id}/result:
+    get:
+      operationId: AttemptsController_result
+      summary: Resultado detalhado da minha avaliação (US-30)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detalhe da avaliação corrigida
+      tags: *ref_7
+      security: *ref_8
+  /attempts/{id}/extra-time:
+    patch:
+      operationId: AttemptsController_extraTime
+      summary: Conceder tempo extra ao candidato (US-12)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtraTimeDto'
+      responses:
+        '200':
+          description: Tempo atualizado
+        '400':
+          description: Avaliação já finalizada
+      tags: *ref_7
+      security: *ref_8
+  /attempts/{id}/approve:
+    patch:
+      operationId: AttemptsController_approve
+      summary: Aprovar/reprovar manualmente (US-27)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveDto'
+      responses:
+        '200':
+          description: Decisão registrada
+      tags: *ref_7
+      security: *ref_8
+  /attempts/{id}/feedback:
+    patch:
+      operationId: AttemptsController_feedback
+      summary: Registrar feedback geral (US-28)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackDto'
+      responses:
+        '200':
+          description: Feedback registrado
+      tags: *ref_7
+      security: *ref_8
+  /attempts/{id}/correction:
+    get:
+      operationId: AttemptsController_correction
+      summary: Tentativa para correção — respostas e questões abertas
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Dados de correção
+      tags: *ref_7
+      security: *ref_8
+  /notifications:
+    get:
+      operationId: NotificationsController_listar
+      summary: Listar meus avisos (US-33/US-34) — consumir via polling
+      parameters:
+        - name: naoLidas
+          required: false
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationResponseDto'
+      tags: &ref_9
+        - Notificações
+      security: &ref_10
+        - bearer: []
+  /notifications/{id}/read:
+    patch:
+      operationId: NotificationsController_marcarComoLida
+      summary: Marcar aviso como lido
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponseDto'
+        '404':
+          description: Notificação não encontrada
+      tags: *ref_9
+      security: *ref_10
+  /answers:
+    put:
+      operationId: AnswersController_save
+      summary: Salvamento automático de resposta (US-16)
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveAnswerDto'
+      responses:
+        '200':
+          description: Resposta salva
+        '400':
+          description: Avaliação finalizada ou tempo encerrado
+        '403':
+          description: Avaliação de outro candidato
+      tags: &ref_11
+        - Respostas
+      security: &ref_12
+        - bearer: []
+  /answers/{id}/grade:
+    put:
+      operationId: AnswersController_grade
+      summary: Corrigir questão aberta (US-24)
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GradeAnswerDto'
+      responses:
+        '200':
+          description: Correção registrada
+        '400':
+          description: Pontuação acima do peso ou questão não aberta
+        '404':
+          description: Resposta não encontrada
+      tags: *ref_11
+      security: *ref_12
+info:
+  title: API — Software de Processo Avaliativo
+  description: >-
+    API REST para condução de processos avaliativos (avaliador e avaliado).
+    Autenticação via JWT no cabeçalho Authorization: Bearer <token>.
+  version: 1.0.0
+  contact: {}
+tags:
+  - name: Autenticação
+    description: ''
+  - name: Usuários
+    description: ''
+  - name: Perguntas
+    description: ''
+  - name: Processos
+    description: ''
+  - name: Tentativas
+    description: ''
+  - name: Respostas
+    description: ''
+  - name: Notificações
+    description: ''
+servers: []
+components:
+  securitySchemes:
+    bearer:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+  schemas:
+    LoginDto:
+      type: object
+      properties:
+        email:
+          type: string
+          example: admin@avaliacao.local
+        senha:
+          type: string
+          example: Admin@123
+      required:
+        - email
+        - senha
+    UsuarioResumoDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        email:
+          type: string
+        perfil:
+          type: string
+          enum:
+            - ADMIN
+            - AVALIADOR
+            - AVALIADO
+      required:
+        - id
+        - nome
+        - email
+        - perfil
+    AuthResponseDto:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: Token de acesso JWT
+        refreshToken:
+          type: string
+          description: Token de atualização JWT
+        usuario:
+          $ref: '#/components/schemas/UsuarioResumoDto'
+      required:
+        - accessToken
+        - refreshToken
+        - usuario
+    RefreshDto:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          description: Token de atualização emitido no login
+      required:
+        - refreshToken
+    CreateUserDto:
+      type: object
+      properties:
+        nome:
+          type: string
+          example: Maria Avaliadora
+        email:
+          type: string
+          example: maria@avaliacao.local
+        senha:
+          type: string
+          example: Senha@123
+          minLength: 6
+        perfil:
+          type: string
+          enum:
+            - ADMIN
+            - AVALIADOR
+            - AVALIADO
+          example: AVALIADO
+        telefone:
+          type: string
+          example: '+5511999998888'
+          description: Celular do avaliado (opcional)
+      required:
+        - nome
+        - email
+        - senha
+        - perfil
+    UserResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        email:
+          type: string
+        perfil:
+          type: string
+          enum:
+            - ADMIN
+            - AVALIADOR
+            - AVALIADO
+        telefone:
+          type: object
+          nullable: true
+        criadoEm:
+          format: date-time
+          type: string
+      required:
+        - id
+        - nome
+        - email
+        - perfil
+        - criadoEm
+    CreateAlternativaDto:
+      type: object
+      properties:
+        texto:
+          type: string
+          example: Verdadeiro
+        correta:
+          type: boolean
+          example: false
+          description: Indica se é a alternativa correta (gabarito)
+      required:
+        - texto
+        - correta
+    CreateQuestionDto:
+      type: object
+      properties:
+        enunciado:
+          type: string
+          example: Explique o conceito de testes exploratórios.
+        tipo:
+          type: string
+          enum: &ref_13
+            - ABERTA
+            - FECHADA
+          example: ABERTA
+        peso:
+          type: number
+          example: 10
+          description: Peso em pontos (maior que zero)
+        instrucoes:
+          type: string
+          example: Responda em até 10 linhas.
+        alternativas:
+          description: Obrigatório e com no mínimo 2 itens para perguntas fechadas
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateAlternativaDto'
+      required:
+        - enunciado
+        - tipo
+        - peso
+    AlternativaResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        texto:
+          type: string
+        correta:
+          type: boolean
+          description: >-
+            Indica se é a alternativa correta. Omitido para o avaliado durante a
+            prova.
+      required:
+        - id
+        - texto
+        - correta
+    QuestionResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        enunciado:
+          type: string
+        tipo:
+          type: string
+          enum:
+            - ABERTA
+            - FECHADA
+        peso:
+          type: number
+        instrucoes:
+          type: object
+          nullable: true
+        ativa:
+          type: boolean
+        criadoEm:
+          format: date-time
+          type: string
+        alternativas:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlternativaResponseDto'
+      required:
+        - id
+        - enunciado
+        - tipo
+        - peso
+        - ativa
+        - criadoEm
+    UpdateQuestionDto:
+      type: object
+      properties:
+        enunciado:
+          type: string
+          example: Explique o conceito de testes exploratórios.
+        tipo:
+          type: string
+          enum: *ref_13
+          example: ABERTA
+        peso:
+          type: number
+          example: 10
+          description: Peso em pontos (maior que zero)
+        instrucoes:
+          type: string
+          example: Responda em até 10 linhas.
+        alternativas:
+          description: Obrigatório e com no mínimo 2 itens para perguntas fechadas
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateAlternativaDto'
+    CreateProcessDto:
+      type: object
+      properties:
+        titulo:
+          type: string
+          example: Processo Seletivo QA Trainee 2026
+        descricao:
+          type: string
+          example: Avaliação de fundamentos de QA e API REST.
+        tempoMinutos:
+          type: number
+          example: 90
+          description: Tempo limite em minutos
+        notaMinima:
+          type: number
+          example: 70
+          description: Nota mínima de aprovação em %
+        modoAprovacao:
+          type: string
+          enum: &ref_14
+            - AUTOMATICO
+            - MANUAL
+            - AMBOS
+          example: AUTOMATICO
+        exibirGabarito:
+          type: boolean
+          example: false
+          description: Exibir gabarito ao candidato após correção
+        dataInicio:
+          type: string
+          example: '2026-07-01T08:00:00.000Z'
+        dataFim:
+          type: string
+          example: '2026-07-10T23:59:59.000Z'
+      required:
+        - titulo
+        - tempoMinutos
+        - notaMinima
+        - modoAprovacao
+    ProcessResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        titulo:
+          type: string
+        descricao:
+          type: object
+          nullable: true
+        tempoMinutos:
+          type: number
+        notaMinima:
+          type: number
+          description: Nota mínima de aprovação em %
+        modoAprovacao:
+          type: string
+          enum:
+            - AUTOMATICO
+            - MANUAL
+            - AMBOS
+        exibirGabarito:
+          type: boolean
+        dataInicio:
+          type: object
+          nullable: true
+          format: date-time
+        dataFim:
+          type: object
+          nullable: true
+          format: date-time
+        status:
+          type: string
+          enum:
+            - RASCUNHO
+            - ATIVO
+            - ENCERRADO
+        totalPerguntas:
+          type: number
+        totalCandidatos:
+          type: number
+        criadoEm:
+          format: date-time
+          type: string
+      required:
+        - id
+        - titulo
+        - tempoMinutos
+        - notaMinima
+        - modoAprovacao
+        - exibirGabarito
+        - status
+        - totalPerguntas
+        - totalCandidatos
+        - criadoEm
+    UpdateProcessDto:
+      type: object
+      properties:
+        titulo:
+          type: string
+          example: Processo Seletivo QA Trainee 2026
+        descricao:
+          type: string
+          example: Avaliação de fundamentos de QA e API REST.
+        tempoMinutos:
+          type: number
+          example: 90
+          description: Tempo limite em minutos
+        notaMinima:
+          type: number
+          example: 70
+          description: Nota mínima de aprovação em %
+        modoAprovacao:
+          type: string
+          enum: *ref_14
+          example: AUTOMATICO
+        exibirGabarito:
+          type: boolean
+          example: false
+          description: Exibir gabarito ao candidato após correção
+        dataInicio:
+          type: string
+          example: '2026-07-01T08:00:00.000Z'
+        dataFim:
+          type: string
+          example: '2026-07-10T23:59:59.000Z'
+    ProcessoPerguntaItemDto:
+      type: object
+      properties:
+        perguntaId:
+          type: string
+          format: uuid
+        ordem:
+          type: number
+          example: 1
+          description: Ordem de exibição
+      required:
+        - perguntaId
+        - ordem
+    AddQuestionsDto:
+      type: object
+      properties:
+        perguntas:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProcessoPerguntaItemDto'
+      required:
+        - perguntas
+    AddCandidatesDto:
+      type: object
+      properties:
+        candidatoIds:
+          description: IDs dos avaliados
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+        - candidatoIds
+    CandidatePanelDto:
+      type: object
+      properties:
+        tentativaId:
+          type: object
+          format: uuid
+          nullable: true
+          description: Nulo se o candidato ainda não iniciou
+        candidatoId:
+          type: string
+          format: uuid
+        candidatoNome:
+          type: string
+        status:
+          type: string
+          description: >-
+            Status da tentativa, ou NAO_INICIADA se o candidato ainda não
+            começou
+          enum:
+            - EM_ANDAMENTO
+            - ENVIADA
+            - CORRIGIDA
+            - NAO_INICIADA
+        scoreParcial:
+          type: object
+          nullable: true
+        scoreTotal:
+          type: object
+          nullable: true
+        aprovado:
+          type: object
+          nullable: true
+        abertasPendentes:
+          type: number
+        totalSaidas:
+          type: number
+          description: Total de saídas de janela (anti-cola)
+        tempoGastoSegundos:
+          type: object
+          nullable: true
+          description: Tempo gasto em segundos
+      required:
+        - tentativaId
+        - candidatoId
+        - candidatoNome
+        - status
+        - abertasPendentes
+        - totalSaidas
+    ProcessStatsDto:
+      type: object
+      properties:
+        totalCandidatos:
+          type: number
+        finalizados:
+          type: number
+        mediaTempoSegundos:
+          type: object
+          nullable: true
+          description: Média de tempo em segundos
+      required:
+        - totalCandidatos
+        - finalizados
+    AvailableAssessmentDto:
+      type: object
+      properties:
+        processoId:
+          type: string
+          format: uuid
+        titulo:
+          type: string
+        descricao:
+          type: object
+          nullable: true
+        tempoMinutos:
+          type: number
+        totalPerguntas:
+          type: number
+      required:
+        - processoId
+        - titulo
+        - tempoMinutos
+        - totalPerguntas
+    AttemptStatusDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        processoTitulo:
+          type: string
+        status:
+          type: string
+          enum:
+            - EM_ANDAMENTO
+            - ENVIADA
+            - CORRIGIDA
+        situacao:
+          type: string
+          description: Situação visível ao candidato
+        scoreParcial:
+          type: object
+          nullable: true
+        scoreTotal:
+          type: object
+          nullable: true
+        aprovado:
+          type: object
+          nullable: true
+        abertasPendentes:
+          type: number
+        finalizadoEm:
+          type: object
+          nullable: true
+          format: date-time
+      required:
+        - id
+        - processoTitulo
+        - status
+        - situacao
+        - abertasPendentes
+    StartAttemptDto:
+      type: object
+      properties:
+        processoId:
+          type: string
+          format: uuid
+          description: Processo a ser respondido
+      required:
+        - processoId
+    QuestaoTentativaDto:
+      type: object
+      properties:
+        perguntaId:
+          type: string
+          format: uuid
+        enunciado:
+          type: string
+        tipo:
+          type: string
+          enum:
+            - ABERTA
+            - FECHADA
+        peso:
+          type: number
+        instrucoes:
+          type: object
+          nullable: true
+        ordem:
+          type: number
+        alternativas:
+          type: array
+          description: Alternativas (sem indicar a correta) para perguntas fechadas
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              texto:
+                type: string
+        respostaAtual:
+          type: object
+          description: Resposta já salva pelo candidato
+      required:
+        - perguntaId
+        - enunciado
+        - tipo
+        - peso
+        - ordem
+    AttemptDetailDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - EM_ANDAMENTO
+            - ENVIADA
+            - CORRIGIDA
+        iniciadoEm:
+          format: date-time
+          type: string
+        tempoRestanteSegundos:
+          type: number
+          description: Segundos restantes para o fim da prova
+        questoes:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestaoTentativaDto'
+      required:
+        - id
+        - status
+        - iniciadoEm
+        - tempoRestanteSegundos
+        - questoes
+    ExtraTimeDto:
+      type: object
+      properties:
+        minutos:
+          type: number
+          example: 10
+          description: Minutos extras a conceder
+      required:
+        - minutos
+    ApproveDto:
+      type: object
+      properties:
+        aprovado:
+          type: boolean
+          example: true
+          description: true = aprovado, false = reprovado
+      required:
+        - aprovado
+    FeedbackDto:
+      type: object
+      properties:
+        feedbackGeral:
+          type: string
+          example: Desempenho consistente nas questões de API.
+      required:
+        - feedbackGeral
+    NotificationResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tipo:
+          type: string
+          enum:
+            - NOVO_ENVIO
+            - RESULTADO_DISPONIVEL
+        mensagem:
+          type: string
+        link:
+          type: object
+          nullable: true
+        lida:
+          type: boolean
+        criadoEm:
+          format: date-time
+          type: string
+      required:
+        - id
+        - tipo
+        - mensagem
+        - lida
+        - criadoEm
+    SaveAnswerDto:
+      type: object
+      properties:
+        tentativaId:
+          type: string
+          format: uuid
+        perguntaId:
+          type: string
+          format: uuid
+        textoResposta:
+          type: string
+          description: Resposta de pergunta aberta
+        alternativaId:
+          type: string
+          format: uuid
+          description: Alternativa escolhida (pergunta fechada)
+      required:
+        - tentativaId
+        - perguntaId
+    GradeAnswerDto:
+      type: object
+      properties:
+        pontos:
+          type: number
+          example: 8
+          description: Pontos atribuídos (0 até o peso da questão)
+        observacao:
+          type: string
+          example: Boa resposta, faltou citar exemplos.
+      required:
+        - pontos

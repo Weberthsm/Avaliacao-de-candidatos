@@ -1,0 +1,244 @@
+// Schema do banco de dados — Software de Processo Avaliativo
+// Banco: PostgreSQL | ORM: Prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum Perfil {
+  ADMIN
+  AVALIADOR
+  AVALIADO
+}
+
+enum TipoPergunta {
+  ABERTA
+  FECHADA
+}
+
+enum ModoAprovacao {
+  AUTOMATICO
+  MANUAL
+  AMBOS
+}
+
+enum StatusProcesso {
+  RASCUNHO
+  ATIVO
+  ENCERRADO
+}
+
+enum StatusTentativa {
+  EM_ANDAMENTO
+  ENVIADA
+  CORRIGIDA
+}
+
+enum TipoNotificacao {
+  NOVO_ENVIO
+  RESULTADO_DISPONIVEL
+}
+
+// ─────────────────────────────────────────────
+// Usuários
+// ─────────────────────────────────────────────
+
+model Usuario {
+  id          String   @id @default(uuid())
+  nome        String
+  email       String   @unique
+  senhaHash   String   @map("senha_hash")
+  perfil      Perfil
+  telefone    String?
+  criadoEm    DateTime @default(now()) @map("criado_em")
+
+  // Controle de acesso (RN-01.2)
+  tentativasFalhas Int       @default(0) @map("tentativas_falhas")
+  bloqueadoAte     DateTime? @map("bloqueado_ate")
+
+  // Relacionamentos
+  perguntas          Pergunta[]
+  processos          Processo[]
+  candidaturas       ProcessoCandidato[]
+  tentativas         Tentativa[]
+  notificacoes       Notificacao[]
+
+  @@map("usuarios")
+}
+
+// ─────────────────────────────────────────────
+// Banco de perguntas
+// ─────────────────────────────────────────────
+
+model Pergunta {
+  id          String       @id @default(uuid())
+  avaliadorId String       @map("avaliador_id")
+  enunciado   String
+  tipo        TipoPergunta
+  peso        Int
+  instrucoes  String?
+  ativa       Boolean      @default(true)
+  criadoEm    DateTime     @default(now()) @map("criado_em")
+
+  avaliador   Usuario      @relation(fields: [avaliadorId], references: [id])
+  alternativas Alternativa[]
+  processoPerguntas ProcessoPergunta[]
+  respostas   Resposta[]
+
+  @@index([avaliadorId])
+  @@map("perguntas")
+}
+
+model Alternativa {
+  id         String  @id @default(uuid())
+  perguntaId String  @map("pergunta_id")
+  texto      String
+  correta    Boolean @default(false)
+
+  pergunta   Pergunta @relation(fields: [perguntaId], references: [id], onDelete: Cascade)
+  respostas  Resposta[]
+
+  @@index([perguntaId])
+  @@map("alternativas")
+}
+
+// ─────────────────────────────────────────────
+// Processo avaliativo
+// ─────────────────────────────────────────────
+
+model Processo {
+  id             String         @id @default(uuid())
+  avaliadorId    String         @map("avaliador_id")
+  titulo         String
+  descricao      String?
+  tempoMinutos   Int            @map("tempo_minutos")
+  notaMinima     Decimal        @map("nota_minima") @db.Decimal(5, 2)
+  modoAprovacao  ModoAprovacao  @map("modo_aprovacao")
+  exibirGabarito Boolean        @default(false) @map("exibir_gabarito")
+  dataInicio     DateTime?      @map("data_inicio")
+  dataFim        DateTime?      @map("data_fim")
+  status         StatusProcesso @default(RASCUNHO)
+  criadoEm       DateTime       @default(now()) @map("criado_em")
+
+  avaliador   Usuario             @relation(fields: [avaliadorId], references: [id])
+  perguntas   ProcessoPergunta[]
+  candidatos  ProcessoCandidato[]
+  tentativas  Tentativa[]
+
+  @@index([avaliadorId])
+  @@map("processos")
+}
+
+model ProcessoPergunta {
+  id         String @id @default(uuid())
+  processoId String @map("processo_id")
+  perguntaId String @map("pergunta_id")
+  ordem      Int
+
+  processo   Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+  pergunta   Pergunta @relation(fields: [perguntaId], references: [id])
+
+  @@unique([processoId, perguntaId])
+  @@index([processoId])
+  @@map("processo_perguntas")
+}
+
+model ProcessoCandidato {
+  id         String @id @default(uuid())
+  processoId String @map("processo_id")
+  avaliadoId String @map("avaliado_id")
+
+  processo   Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+  avaliado   Usuario  @relation(fields: [avaliadoId], references: [id])
+
+  @@unique([processoId, avaliadoId])
+  @@index([processoId])
+  @@map("processo_candidatos")
+}
+
+// ─────────────────────────────────────────────
+// Tentativas e respostas
+// ─────────────────────────────────────────────
+
+model Tentativa {
+  id            String          @id @default(uuid())
+  processoId    String          @map("processo_id")
+  avaliadoId    String          @map("avaliado_id")
+  iniciadoEm    DateTime        @default(now()) @map("iniciado_em")
+  finalizadoEm  DateTime?       @map("finalizado_em")
+  tempoExtraMin Int             @default(0) @map("tempo_extra_min")
+  scoreParcial  Decimal?        @map("score_parcial") @db.Decimal(7, 2)
+  scoreTotal    Decimal?        @map("score_total") @db.Decimal(7, 2)
+  status        StatusTentativa @default(EM_ANDAMENTO)
+  aprovado      Boolean?
+  aprovadoManual Boolean        @default(false) @map("aprovado_manual")
+  feedbackGeral String?         @map("feedback_geral")
+
+  processo   Processo   @relation(fields: [processoId], references: [id])
+  avaliado   Usuario    @relation(fields: [avaliadoId], references: [id])
+  respostas  Resposta[]
+  saidasAba  LogAbaSaida[]
+
+  // Uma tentativa por candidato por processo (RN-14.3)
+  @@unique([processoId, avaliadoId])
+  @@index([avaliadoId])
+  @@map("tentativas")
+}
+
+model Resposta {
+  id                 String    @id @default(uuid())
+  tentativaId        String    @map("tentativa_id")
+  perguntaId         String    @map("pergunta_id")
+  textoResposta      String?   @map("texto_resposta")
+  alternativaId      String?   @map("alternativa_id")
+  pontosObtidos      Decimal?  @map("pontos_obtidos") @db.Decimal(7, 2)
+  observacaoAvaliador String?  @map("observacao_avaliador")
+  salvoEm            DateTime  @default(now()) @updatedAt @map("salvo_em")
+
+  tentativa   Tentativa    @relation(fields: [tentativaId], references: [id], onDelete: Cascade)
+  pergunta    Pergunta     @relation(fields: [perguntaId], references: [id])
+  alternativa Alternativa? @relation(fields: [alternativaId], references: [id])
+
+  @@unique([tentativaId, perguntaId])
+  @@index([tentativaId])
+  @@map("respostas")
+}
+
+model LogAbaSaida {
+  id          String   @id @default(uuid())
+  tentativaId String   @map("tentativa_id")
+  ocorridoEm  DateTime @default(now()) @map("ocorrido_em")
+
+  tentativa   Tentativa @relation(fields: [tentativaId], references: [id], onDelete: Cascade)
+
+  @@index([tentativaId])
+  @@map("log_aba_saidas")
+}
+
+// ─────────────────────────────────────────────
+// Notificações
+// ─────────────────────────────────────────────
+
+model Notificacao {
+  id        String          @id @default(uuid())
+  usuarioId String          @map("usuario_id")
+  tipo      TipoNotificacao
+  mensagem  String
+  link      String?
+  lida      Boolean         @default(false)
+  criadoEm  DateTime        @default(now()) @map("criado_em")
+
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId])
+  @@map("notificacoes")
+}
