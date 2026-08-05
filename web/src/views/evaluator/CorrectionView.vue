@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { attemptsService } from '@/services/attempts.service';
 import { answersService } from '@/services/answers.service';
 import { useToast } from '@/composables/useToast';
-import type { CorrectionView } from '@/types';
+import type { CorrectionAnswer, CorrectionView } from '@/types';
 import StatusBadge from '@/components/StatusBadge.vue';
 import InfoTip from '@/components/InfoTip.vue';
 
@@ -21,19 +21,22 @@ async function carregar() {
   dados.value = await attemptsService.correcao(id);
   feedback.value = dados.value.feedbackGeral ?? '';
   for (const r of dados.value.respostas) {
-    notas[r.respostaId] = {
+    notas[r.perguntaId] = {
       pontos: r.pontosObtidos,
       observacao: r.observacao ?? '',
     };
   }
 }
 
-async function corrigir(respostaId: string, peso: number) {
-  const n = notas[respostaId];
+async function corrigir(r: CorrectionAnswer) {
+  if (!r.respostaId) {
+    return toast.erro('Esta questão ainda não tem registro de resposta.');
+  }
+  const n = notas[r.perguntaId];
   if (n.pontos == null || n.pontos < 0) return toast.erro('Informe os pontos.');
-  if (n.pontos > peso) return toast.erro(`Máximo ${peso} pontos nesta questão.`);
+  if (n.pontos > r.peso) return toast.erro(`Máximo ${r.peso} pontos nesta questão.`);
   try {
-    await answersService.corrigir(respostaId, Number(n.pontos), n.observacao || undefined);
+    await answersService.corrigir(r.respostaId, Number(n.pontos), n.observacao || undefined);
     toast.sucesso('Correção registrada.');
     await carregar();
   } catch {
@@ -73,7 +76,7 @@ onMounted(carregar);
       </div>
     </div>
 
-    <div v-for="r in dados.respostas" :key="r.respostaId" class="card p-5">
+    <div v-for="r in dados.respostas" :key="r.perguntaId" class="card p-5">
       <div class="flex items-center gap-2">
         <StatusBadge :texto="r.tipo === 'ABERTA' ? 'Aberta' : 'Fechada'" tom="info" />
         <span class="text-xs text-slate-400">{{ r.peso }} pts</span>
@@ -104,13 +107,13 @@ onMounted(carregar);
               Pontos (0 a {{ r.peso }})
               <InfoTip texto="Atribua de 0 até o peso da questão. O score total e a aprovação só são calculados após todas as dissertativas serem corrigidas." />
             </label>
-            <input v-model.number="notas[r.respostaId].pontos" type="number" min="0" :max="r.peso" class="input w-28" />
+            <input v-model.number="notas[r.perguntaId].pontos" type="number" min="0" :max="r.peso" class="input w-28" />
           </div>
           <div class="flex-1">
             <label class="label">Observação</label>
-            <input v-model="notas[r.respostaId].observacao" class="input" />
+            <input v-model="notas[r.perguntaId].observacao" class="input" />
           </div>
-          <button class="btn-primary" @click="corrigir(r.respostaId, r.peso)">Salvar nota</button>
+          <button class="btn-primary" @click="corrigir(r)">Salvar nota</button>
         </div>
       </div>
     </div>

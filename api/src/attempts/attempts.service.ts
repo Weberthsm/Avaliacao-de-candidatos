@@ -206,10 +206,19 @@ export class AttemptsService {
       where: { id: tentativa.processoId },
     });
 
+    // Enumera pela composição do processo: o candidato precisa ver todas as
+    // questões da prova, inclusive as que deixou em branco.
+    const perguntas = await this.prisma.processoPergunta.findMany({
+      where: { processoId: tentativa.processoId },
+      include: { pergunta: { include: { alternativas: true } } },
+      orderBy: { ordem: 'asc' },
+    });
     const respostas = await this.prisma.resposta.findMany({
       where: { tentativaId: id },
-      include: { pergunta: { include: { alternativas: true } }, alternativa: true },
     });
+    const respostaPorPergunta = new Map(
+      respostas.map((r) => [r.perguntaId, r]),
+    );
 
     const corrigida = tentativa.status === StatusTentativa.CORRIGIDA;
 
@@ -221,23 +230,27 @@ export class AttemptsService {
       aprovado: tentativa.aprovado,
       // RN-28.2 — feedback só após correção completa
       feedbackGeral: corrigida ? tentativa.feedbackGeral : null,
-      questoes: respostas.map((r) => ({
-        perguntaId: r.perguntaId,
-        enunciado: r.pergunta.enunciado,
-        tipo: r.pergunta.tipo,
-        peso: r.pergunta.peso,
-        respostaTexto: r.textoResposta,
-        alternativaEscolhida: r.alternativaId,
-        pontosObtidos: r.pontosObtidos ? Number(r.pontosObtidos) : null,
-        observacao: corrigida ? r.observacaoAvaliador : null,
-        // RN-30.2 — gabarito só se o processo permitir
-        alternativaCorreta:
-          corrigida &&
-          processo?.exibirGabarito &&
-          r.pergunta.tipo === TipoPergunta.FECHADA
-            ? (r.pergunta.alternativas.find((a) => a.correta)?.id ?? null)
-            : undefined,
-      })),
+      questoes: perguntas.map((pp) => {
+        const r = respostaPorPergunta.get(pp.perguntaId);
+        return {
+          perguntaId: pp.perguntaId,
+          enunciado: pp.pergunta.enunciado,
+          tipo: pp.pergunta.tipo,
+          peso: pp.pergunta.peso,
+          respostaTexto: r?.textoResposta ?? null,
+          alternativaEscolhida: r?.alternativaId ?? null,
+          pontosObtidos:
+            r?.pontosObtidos != null ? Number(r.pontosObtidos) : null,
+          observacao: corrigida ? (r?.observacaoAvaliador ?? null) : null,
+          // RN-30.2 — gabarito só se o processo permitir
+          alternativaCorreta:
+            corrigida &&
+            processo?.exibirGabarito &&
+            pp.pergunta.tipo === TipoPergunta.FECHADA
+              ? (pp.pergunta.alternativas.find((a) => a.correta)?.id ?? null)
+              : undefined,
+        };
+      }),
     };
   }
 
@@ -388,32 +401,46 @@ export class AttemptsService {
   /** Visão de correção para o avaliador (US-24). */
   async correctionView(avaliadorId: string, id: string) {
     const tentativa = await this.carregarParaAvaliador(avaliadorId, id);
+
+    // Enumera pela composição do processo, não pelas respostas gravadas: uma
+    // questão deixada em branco precisa aparecer para ser corrigida.
+    const perguntas = await this.prisma.processoPergunta.findMany({
+      where: { processoId: tentativa.processoId },
+      include: { pergunta: { include: { alternativas: true } } },
+      orderBy: { ordem: 'asc' },
+    });
     const respostas = await this.prisma.resposta.findMany({
       where: { tentativaId: id },
-      include: { pergunta: { include: { alternativas: true } }, alternativa: true },
     });
+    const respostaPorPergunta = new Map(
+      respostas.map((r) => [r.perguntaId, r]),
+    );
 
     return {
       id: tentativa.id,
       status: tentativa.status,
       feedbackGeral: tentativa.feedbackGeral,
       aprovado: tentativa.aprovado,
-      respostas: respostas.map((r) => ({
-        respostaId: r.id,
-        perguntaId: r.perguntaId,
-        enunciado: r.pergunta.enunciado,
-        tipo: r.pergunta.tipo,
-        peso: r.pergunta.peso,
-        gabarito: r.pergunta.gabarito ?? null,
-        respostaTexto: r.textoResposta,
-        alternativaEscolhida: r.alternativaId,
-        alternativaCorreta:
-          r.pergunta.tipo === TipoPergunta.FECHADA
-            ? (r.pergunta.alternativas.find((a) => a.correta)?.id ?? null)
-            : null,
-        pontosObtidos: r.pontosObtidos ? Number(r.pontosObtidos) : null,
-        observacao: r.observacaoAvaliador,
-      })),
+      respostas: perguntas.map((pp) => {
+        const r = respostaPorPergunta.get(pp.perguntaId);
+        return {
+          respostaId: r?.id ?? null,
+          perguntaId: pp.perguntaId,
+          enunciado: pp.pergunta.enunciado,
+          tipo: pp.pergunta.tipo,
+          peso: pp.pergunta.peso,
+          gabarito: pp.pergunta.gabarito ?? null,
+          respostaTexto: r?.textoResposta ?? null,
+          alternativaEscolhida: r?.alternativaId ?? null,
+          alternativaCorreta:
+            pp.pergunta.tipo === TipoPergunta.FECHADA
+              ? (pp.pergunta.alternativas.find((a) => a.correta)?.id ?? null)
+              : null,
+          pontosObtidos:
+            r?.pontosObtidos != null ? Number(r.pontosObtidos) : null,
+          observacao: r?.observacaoAvaliador ?? null,
+        };
+      }),
     };
   }
 
@@ -475,11 +502,48 @@ export class AttemptsService {
   // Internos
   // ─────────────────────────────────────────────
 
+  /**
+   * Cria linhas de resposta em branco para as perguntas do processo que o
+   * candidato não chegou a responder. Uma Resposta só nasce quando o candidato
+   * interage com o campo, então questões intocadas ficariam sem registro.
+   */
+  private async materializarRespostasEmBranco(
+    tentativaId: string,
+    processoId: string,
+  ): Promise<void> {
+    const [perguntas, respondidas] = await Promise.all([
+      this.prisma.processoPergunta.findMany({
+        where: { processoId },
+        select: { perguntaId: true },
+      }),
+      this.prisma.resposta.findMany({
+        where: { tentativaId },
+        select: { perguntaId: true },
+      }),
+    ]);
+
+    const jaRegistradas = new Set(respondidas.map((r) => r.perguntaId));
+    const faltantes = perguntas.filter(
+      (pp) => !jaRegistradas.has(pp.perguntaId),
+    );
+    if (faltantes.length === 0) return;
+
+    await this.prisma.resposta.createMany({
+      data: faltantes.map((pp) => ({ tentativaId, perguntaId: pp.perguntaId })),
+      skipDuplicates: true,
+    });
+  }
+
   private async finalizar(tentativaId: string, finalizadoEm: Date) {
     const tentativa = await this.prisma.tentativa.findUniqueOrThrow({
       where: { id: tentativaId },
       include: { processo: true },
     });
+
+    // Toda pergunta do processo precisa ter uma linha de resposta, ainda que em
+    // branco: sem ela a questão some da correção e do resultado, e a tentativa
+    // fica impossível de concluir (não há respostaId para o avaliador pontuar).
+    await this.materializarRespostasEmBranco(tentativaId, tentativa.processoId);
 
     await this.scoring.corrigirFechadas(tentativaId); // US-23
     const calc = await this.scoring.calcular(tentativaId); // US-25
