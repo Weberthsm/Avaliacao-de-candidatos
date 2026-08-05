@@ -126,7 +126,8 @@ export interface ProcessStats {
 }
 
 export interface CorrectionAnswer {
-  respostaId: string;
+  /** Nulo quando a questão ainda não tem registro de resposta gravado. */
+  respostaId: string | null;
   perguntaId: string;
   enunciado: string;
   tipo: TipoPergunta;
